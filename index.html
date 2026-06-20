@@ -64,9 +64,23 @@
             </svg>
           </button>
           <button type="button" class="back-btn hidden" id="back-btn">← Back</button>
-          <h1 class="page-title" id="main-page-title">Discover</h1>
+          <div class="topbar-breadcrumbs" id="topbar-breadcrumbs">
+            <a href="#" class="breadcrumb-home-link hidden" id="breadcrumb-discover-link">Discover</a>
+            <span class="breadcrumb-separator hidden" id="breadcrumb-separator">/</span>
+            <h1 class="page-title" id="main-page-title">Discover</h1>
+          </div>
         </div>
         <div class="topbar-user-wrap">
+          <!-- Light/Dark Mode quick toggle -->
+          <button type="button" class="topbar-icon-btn" id="theme-quick-toggle-btn" aria-label="Toggle theme" title="Toggle dark mode">
+            <span id="theme-quick-toggle-icon">☀️</span>
+          </button>
+
+          <!-- AI Corner quick access -->
+          <button type="button" class="topbar-icon-btn" id="ai-quick-access-btn" aria-label="Open AI Assistant" title="AI Assistant Corner">
+            <span>✨</span>
+          </button>
+
           <div class="notif-wrapper">
             <button class="notif-bell-btn" id="notif-bell-btn" aria-label="Toggle notifications">
               <span class="bell-icon">🔔</span>
@@ -114,14 +128,6 @@
           <button type="button" class="view-all-btn hidden" id="clear-recent-btn">Clear history</button>
         </div>
         <div class="reco-grid reco-grid-scroll" id="recent-grid"></div>
-
-        <div class="section-header" style="margin-top:36px">
-          <h2>Popular Books</h2>
-          <button type="button" class="view-all-btn" id="popular-view-all-btn">View all ›</button>
-        </div>
-        <div class="reco-grid" id="popular-grid">
-          <!-- filled by JS -->
-        </div>
 
         <div class="section-header" style="margin-top:36px">
           <h2>Book Recommendation</h2>
@@ -268,14 +274,163 @@
         </div>
       </section>
 
+      <!-- AI Assistant Corner View -->
+      <section id="ai-view" class="hidden section-block">
+        <div class="ai-header">
+          <div class="ai-tabs">
+            <button type="button" class="ai-tab active" data-ai-tab="chat">💬 AI Librarian Chat</button>
+            <button type="button" class="ai-tab" data-ai-tab="summary">📝 AI Book Summarizer</button>
+            <button type="button" class="ai-tab" data-ai-tab="reco">🤖 AI Recommendation Assistant</button>
+          </div>
+        </div>
+
+        <div class="ai-content-wrapper">
+          <!-- AI Librarian Chat Sub-view -->
+          <div class="ai-sub-panel" id="ai-panel-chat">
+            <div class="chat-container">
+              <div class="chat-messages" id="chat-messages">
+                <div class="message system-message">
+                  <div class="message-content">
+                    Hello! I'm your AI Librarian. Ask me anything about books, authors, or ask for a recommendation. Feel free to click one of the quick suggestions below!
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Quick prompts suggestions -->
+              <div class="chat-chips-container" id="chat-chips-container">
+                <button type="button" class="chat-chip" data-prompt="Can you recommend a fantasy book?">🧙 Recommendation: Fantasy</button>
+                <button type="button" class="chat-chip" data-prompt="What are some classics every book lover should read?">📚 Classics to Read</button>
+                <button type="button" class="chat-chip" data-prompt="Give me a recommendation for a thrilling mystery book.">🕵️ Thrillers & Mystery</button>
+                <button type="button" class="chat-chip" data-prompt="Suggest a fast-paced science fiction novel.">🚀 Fast Sci-Fi</button>
+              </div>
+
+              <!-- Chat input row -->
+              <form id="chat-input-form" class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type your message to the librarian..." autocomplete="off" required />
+                <button type="submit" class="chat-send-btn">Send ✨</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- AI Summarizer Sub-view -->
+          <div class="ai-sub-panel hidden" id="ai-panel-summary">
+            <div class="summarizer-dashboard">
+              <div class="summarizer-controls">
+                <div class="summarizer-field">
+                  <label for="summarizer-book-select">Select Book to Summarize:</label>
+                  <select id="summarizer-book-select" class="summarizer-select">
+                    <option value="">Choose a book...</option>
+                  </select>
+                </div>
+
+                <div class="summarizer-field">
+                  <label for="summarizer-type-select">Summary Format:</label>
+                  <select id="summarizer-type-select" class="summarizer-select">
+                    <option value="pitch">Elevator Pitch (Quick & Catchy)</option>
+                    <option value="takeaways" selected>Key Takeaways (Highlights & Core Ideas)</option>
+                    <option value="characters">Character & Plot Study</option>
+                    <option value="themes">Themes & Literary Analysis</option>
+                  </select>
+                </div>
+
+                <button type="button" id="generate-summary-btn" class="action-btn-primary" style="margin-top: 12px; width: 100%;">Generate Summary ✨</button>
+              </div>
+
+              <div class="summary-result-container">
+                <div class="summary-empty" id="summary-empty-state">
+                  <div class="empty-icon">📝</div>
+                  <p>Choose a book and click "Generate Summary" to load AI insights.</p>
+                </div>
+                <div class="summary-content hidden" id="summary-result-content">
+                  <div class="summary-header">
+                    <div class="summary-book-cover" id="summary-cover"></div>
+                    <div class="summary-book-info">
+                      <h3 id="summary-title">Book Title</h3>
+                      <p class="meta" id="summary-authors">Authors</p>
+                      <span class="badge" id="summary-badge">Summary Format</span>
+                    </div>
+                  </div>
+                  <div class="summary-text-body" id="summary-text-body">
+                    <!-- Generated text loads here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Recommendation Assistant Sub-view -->
+          <div class="ai-sub-panel hidden" id="ai-panel-reco">
+            <div class="reco-dashboard">
+              <p class="dashboard-intro">Tell me what kind of reading experience you're looking for, and I'll match you with books from the catalog.</p>
+              
+              <div class="reco-options-grid">
+                <div class="reco-option-group">
+                  <label>What's your current mood?</label>
+                  <div class="option-chips" id="reco-mood-options">
+                    <button type="button" class="option-chip active" data-val="adventurous">🧙 Adventurous</button>
+                    <button type="button" class="option-chip" data-val="cozy">☕ Cozy & Heartwarming</button>
+                    <button type="button" class="option-chip" data-val="mysterious">🕵️ Mysterious & Dark</button>
+                    <button type="button" class="option-chip" data-val="intellectual">🧠 Intellectual & Deep</button>
+                    <button type="button" class="option-chip" data-val="emotional">😢 Emotional & Moving</button>
+                  </div>
+                </div>
+
+                <div class="reco-option-group">
+                  <label>Desired Pace</label>
+                  <div class="option-chips" id="reco-pace-options">
+                    <button type="button" class="option-chip active" data-val="fast">⚡ Fast-Paced</button>
+                    <button type="button" class="option-chip" data-val="moderate">🐢 Moderate/Leisurely</button>
+                    <button type="button" class="option-chip" data-val="slow">🧘 Slow & Immersive</button>
+                  </div>
+                </div>
+
+                <div class="reco-option-group">
+                  <label>Preferred Book Length</label>
+                  <div class="option-chips" id="reco-length-options">
+                    <button type="button" class="option-chip active" data-val="short">📖 Short (&lt; 250 pages)</button>
+                    <button type="button" class="option-chip" data-val="medium">📚 Medium (250–500 pages)</button>
+                    <button type="button" class="option-chip" data-val="long">🧱 Epic (500+ pages)</button>
+                  </div>
+                </div>
+
+                <div class="reco-option-group">
+                  <label>Primary Genre Preference</label>
+                  <select id="reco-genre-select" class="summarizer-select">
+                    <option value="Fantasy" selected>Fantasy & Magic</option>
+                    <option value="Science Fiction">Science Fiction</option>
+                    <option value="Mystery">Mystery & Thriller</option>
+                    <option value="Classics">Literary Classics</option>
+                    <option value="History">Historical Fiction</option>
+                    <option value="Biography">Biography & Memoir</option>
+                    <option value="Poetry">Poetry</option>
+                  </select>
+                </div>
+              </div>
+
+              <button type="button" id="reco-generate-btn" class="action-btn-primary" style="margin-top: 24px; width: 100%; font-size: 1rem;">Find My Next Read ✨</button>
+
+              <div class="reco-results-section hidden" id="reco-results-section">
+                <h3 class="results-heading">✨ Your Personalized AI Match List</h3>
+                <div class="reco-results-grid" id="reco-results-grid">
+                  <!-- Match results populated dynamically by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Search results view -->
       <section id="results-root" class="hidden">
         <div class="results-layout" id="results-layout">
           <!-- List panel -->
           <div class="book-list-panel">
-            <div class="panel-header">
-              <h2 id="results-panel-title">Search Results</h2>
-              <p id="search-count">0 items</p>
+            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <h2 id="results-panel-title">Search Results</h2>
+                <p id="search-count">0 items</p>
+              </div>
+              <button type="button" class="minimize-results-btn" id="minimize-results-btn" title="Minimise results">🗕</button>
             </div>
             <div class="results-toolbar">
               <select id="sort-select" class="sort-select" aria-label="Sort results">
@@ -356,6 +511,14 @@
                 <p style="font-size: 0.8rem; color: var(--muted); margin: 0; line-height: 1.4;">Compare book prices on Google Shopping, sorted automatically from low to high.</p>
                 <button type="button" id="shop-online-btn" class="action-btn-primary" style="margin-top: auto; width: 100%;">🛒 Search Google Shopping</button>
               </div>
+            </div>
+
+            <!-- Download Sources -->
+            <div class="info-block hidden" id="detail-downloads-block" style="margin-top: 20px;">
+              <h3>📥 Download Free eBook</h3>
+              <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">Search and download this book for free from public digital libraries.</p>
+              <div class="download-grid" id="download-grid"></div>
+              <button type="button" class="view-all-btn" id="show-all-downloads-btn" style="margin-top: 12px; width: 100%;">Show all 20 sources ↓</button>
             </div>
           </div>
         </div>

@@ -56,6 +56,7 @@ const searchCatSelected     = document.getElementById('search-cat-selected');
 const searchCatMenu         = document.getElementById('search-cat-menu');
 
 // Split View elements
+const minimizeResultsBtn    = document.getElementById('minimize-results-btn');
 const bookResultsList       = document.getElementById('book-results-list');
 const searchCountEl         = document.getElementById('search-count');
 const resultsPanelTitle     = document.getElementById('results-panel-title');
@@ -85,6 +86,32 @@ const importDataBtn         = document.getElementById('import-data-btn');
 const importFileInput       = document.getElementById('import-file-input');
 const shortcutsPanel        = document.getElementById('shortcuts-panel');
 const closeShortcutsBtn     = document.getElementById('close-shortcuts-btn');
+const breadcrumbDiscoverLink = document.getElementById('breadcrumb-discover-link');
+const breadcrumbSeparator    = document.getElementById('breadcrumb-separator');
+
+// AI Corner Elements
+const aiQuickAccessBtn      = document.getElementById('ai-quick-access-btn');
+const themeQuickToggleBtn   = document.getElementById('theme-quick-toggle-btn');
+const themeQuickToggleIcon  = document.getElementById('theme-quick-toggle-icon');
+const aiView                = document.getElementById('ai-view');
+const chatMessages          = document.getElementById('chat-messages');
+const chatInputForm         = document.getElementById('chat-input-form');
+const chatInput             = document.getElementById('chat-input');
+const chatChipsContainer    = document.getElementById('chat-chips-container');
+const summarizerBookSelect  = document.getElementById('summarizer-book-select');
+const summarizerTypeSelect  = document.getElementById('summarizer-type-select');
+const generateSummaryBtn    = document.getElementById('generate-summary-btn');
+const summaryEmptyState     = document.getElementById('summary-empty-state');
+const summaryResultContent  = document.getElementById('summary-result-content');
+const summaryCover          = document.getElementById('summary-cover');
+const summaryTitle          = document.getElementById('summary-title');
+const summaryAuthors        = document.getElementById('summary-authors');
+const summaryBadge          = document.getElementById('summary-badge');
+const summaryTextBody       = document.getElementById('summary-text-body');
+const recoGenerateBtn       = document.getElementById('reco-generate-btn');
+const recoResultsSection    = document.getElementById('reco-results-section');
+const recoResultsGrid       = document.getElementById('reco-results-grid');
+const recoGenreSelect       = document.getElementById('reco-genre-select');
 
 // Category View page elements
 const genreBar              = document.getElementById('genre-bar');
@@ -107,6 +134,8 @@ const resetDataBtn          = document.getElementById('reset-data-btn');
 let currentBooks = [];
 let activeIndex  = 0;
 let currentSearchCategory = ''; // empty means "All"
+let searchResultsMinimized = false;
+let lastActiveView = 'discover';
 
 const STORAGE_KEYS = {
   FAVORITES: 'brh_favorites',
@@ -602,6 +631,29 @@ const BROWSE_GENRES = [
   { name: 'Graphic Novels', query: 'subject:graphic_novels OR subject:comics' }
 ];
 
+const DOWNLOAD_SOURCES = [
+  { name: 'Project Gutenberg', emoji: '📖', url: 'https://www.gutenberg.org/ebooks/search/?query={query}' },
+  { name: 'Internet Archive', emoji: '🏛️', url: 'https://archive.org/search.php?query={query}&and[]=subject%3A%22books%22' },
+  { name: 'Open Library', emoji: '📚', url: 'https://openlibrary.org/search?q={query}' },
+  { name: 'Google Books', emoji: '🔍', url: 'https://books.google.com/books?q={query}' },
+  { name: 'Standard Ebooks', emoji: '⚡', url: 'https://standardebooks.org/ebooks?query={query}' },
+  { name: 'ManyBooks', emoji: '📖', url: 'https://manybooks.net/search-book?search={query}' },
+  { name: 'Feedbooks', emoji: '📚', url: 'https://www.feedbooks.com/search?query={query}' },
+  { name: 'Library of Congress', emoji: '🏛️', url: 'https://www.loc.gov/books/?q={query}' },
+  { name: 'HathiTrust Library', emoji: '📖', url: 'https://catalog.hathitrust.org/Search/Home?lookfor={query}' },
+  { name: 'DOAB (Open Access)', emoji: '📂', url: 'https://directory.doabooks.org/discover?query={query}' },
+  { name: 'OAPEN Library', emoji: '📂', url: 'https://library.oapen.org/discover?query={query}' },
+  { name: 'Wikisource', emoji: '📝', url: 'https://en.wikisource.org/wiki/Special:Search?search={query}' },
+  { name: 'National Emergency Library', emoji: '🏛️', url: 'https://archive.org/details/nationalemergencylibrary?query={query}' },
+  { name: 'Free-eBooks.net', emoji: '🆓', url: 'https://www.free-ebooks.net/search/{title}' },
+  { name: 'PDF Drive', emoji: '📄', url: 'https://www.pdfdrive.com/search?q={title}' },
+  { name: 'Planet eBook', emoji: '🌍', url: 'https://www.planetebook.com/?s={query}' },
+  { name: 'Baen Free Library', emoji: '🚀', url: 'https://www.baen.com/allbooks/category/index/id/2012?q={title}' },
+  { name: 'Smashwords Free Books', emoji: '📖', url: 'https://www.smashwords.com/books/search?query={query}' },
+  { name: 'Oxford Text Archive', emoji: '🎓', url: 'https://ota.bodleian.ox.ac.uk/repository/xmlui/discover?query={query}' },
+  { name: 'Gallica Digital Library', emoji: '🇫🇷', url: 'https://gallica.bnf.fr/services/EngineSearch?txt={query}' }
+];
+
 let activeBrowseGenre = BROWSE_GENRES[0].name;
 let categoryFullPageMode = false;
 
@@ -643,10 +695,12 @@ function saveState(key, data) {
 function updateThemeUI() {
   if (state.settings.theme === 'dark') {
     document.body.setAttribute('data-theme', 'dark');
-    darkModeToggle.checked = true;
+    if (darkModeToggle) darkModeToggle.checked = true;
+    if (themeQuickToggleIcon) themeQuickToggleIcon.textContent = '☀️';
   } else {
     document.body.removeAttribute('data-theme');
-    darkModeToggle.checked = false;
+    if (darkModeToggle) darkModeToggle.checked = false;
+    if (themeQuickToggleIcon) themeQuickToggleIcon.textContent = '🌙';
   }
 }
 
@@ -760,11 +814,27 @@ function updateSidebarUI() {
 function openSidebar() {
   appShell?.classList.add('sidebar-open');
   updateSidebarUI();
+  
+  // Smoothly update indicator during sidebar opening animation (300ms transition)
+  let count = 0;
+  const interval = setInterval(() => {
+    const activeNav = document.querySelector('.nav-item.active');
+    updateSidebarIndicator(activeNav);
+    if (++count >= 15) clearInterval(interval);
+  }, 20);
 }
 
 function closeSidebar() {
   appShell?.classList.remove('sidebar-open');
   updateSidebarUI();
+  
+  // Smoothly update indicator during sidebar closing animation (300ms transition)
+  let count = 0;
+  const interval = setInterval(() => {
+    const activeNav = document.querySelector('.nav-item.active');
+    updateSidebarIndicator(activeNav);
+    if (++count >= 15) clearInterval(interval);
+  }, 20);
 }
 
 function toggleSidebar() {
@@ -777,13 +847,24 @@ if (sidebarOverlay) sidebarOverlay.onclick = closeSidebar;
 
 window.addEventListener('resize', updateSidebarUI);
 
+// Re-align indicator when sidebar transitions finish
+if (appShell) {
+  appShell.addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'grid-template-columns' || e.propertyName === 'transform') {
+      const activeNav = document.querySelector('.nav-item.active');
+      updateSidebarIndicator(activeNav);
+    }
+  });
+}
+
 // ── View Switching SPA Router ────────────────────────────────
 const VIEWS = {
   discover: { panel: homeView, title: 'Discover', nav: navDiscover },
   category: { panel: categoryView, title: 'Category Browse', nav: navCategory },
   favorite: { panel: favoriteView, title: 'Favorite Books', nav: navFavorite },
   library: { panel: libraryView, title: 'My Library', nav: navLibrary },
-  setting: { panel: settingsView, title: 'Settings', nav: navSetting }
+  setting: { panel: settingsView, title: 'Settings', nav: navSetting },
+  ai: { panel: aiView, title: 'AI Assistant Corner', nav: null }
 };
 
 function updateSidebarIndicator(activeItem) {
@@ -810,17 +891,34 @@ function updateBackButton(show) {
   if (backBtn) backBtn.classList.toggle('hidden', !show);
 }
 
+function updateBreadcrumbs(viewName, isDetails = false) {
+  const isDiscover = viewName === 'discover' && !isDetails;
+  if (breadcrumbDiscoverLink) breadcrumbDiscoverLink.classList.toggle('hidden', isDiscover);
+  if (breadcrumbSeparator) breadcrumbSeparator.classList.toggle('hidden', isDiscover);
+}
+
 function setCategoryFullPageMode(enabled) {
   categoryFullPageMode = enabled;
   resultsLayout?.classList.toggle('results-layout--fullpage', enabled);
   detailCol?.classList.toggle('hidden', enabled);
+  if (enabled) {
+    setResultsMinimized(false);
+  }
+}
+
+function setResultsMinimized(minimized) {
+  searchResultsMinimized = minimized;
+  resultsLayout?.classList.toggle('results-layout--details-only', minimized);
 }
 
 function switchView(viewName) {
+  lastActiveView = viewName;
+  updateBreadcrumbs(viewName, false);
   // Hide details view
   resultsRoot.classList.add('hidden');
   updateBackButton(false);
   setCategoryFullPageMode(false);
+  setResultsMinimized(false);
 
   let activeNav = null;
   // Loop through tabs
@@ -846,6 +944,7 @@ function switchView(viewName) {
   else if (viewName === 'category') loadCategoryPage();
   else if (viewName === 'library') loadLibraryPage();
   else if (viewName === 'setting') loadSettingsPage();
+  else if (viewName === 'ai') loadAiPage();
   else if (viewName === 'discover') {
     renderRecentlyViewed();
   }
@@ -857,8 +956,19 @@ if (navCategory) navCategory.onclick = (e) => { e.preventDefault(); switchView('
 if (navFavorite) navFavorite.onclick = (e) => { e.preventDefault(); switchView('favorite'); if (isMobileSidebar()) closeSidebar(); };
 if (navLibrary)  navLibrary.onclick  = (e) => { e.preventDefault(); switchView('library'); if (isMobileSidebar()) closeSidebar(); };
 if (navSetting)  navSetting.onclick  = (e) => { e.preventDefault(); switchView('setting'); if (isMobileSidebar()) closeSidebar(); };
+if (aiQuickAccessBtn) aiQuickAccessBtn.onclick = (e) => { e.preventDefault(); switchView('ai'); };
 
-if (backBtn) backBtn.onclick = () => switchView('discover');
+if (backBtn) {
+  backBtn.onclick = () => {
+    switchView(lastActiveView);
+  };
+}
+if (breadcrumbDiscoverLink) {
+  breadcrumbDiscoverLink.onclick = (e) => {
+    e.preventDefault();
+    switchView('discover');
+  };
+}
 
 // ── Shared Detail Navigation ─────────────────────────────────
 function getBookId(book) {
@@ -874,6 +984,8 @@ function selectAndDisplayBook(book, listContext = [book]) {
   }
 
   setCategoryFullPageMode(false);
+  setResultsMinimized(true);
+  updateBreadcrumbs('discover', true);
 
   // Hide all containers
   Object.values(VIEWS).forEach(v => v.panel.classList.add('hidden'));
@@ -1039,52 +1151,7 @@ function renderHomeReco(books) {
   renderBookCards(recoGrid, books, 8);
 }
 
-async function loadPopularBooks() {
-  if (!popularGrid) return;
-  popularGrid.innerHTML = '<div class="section-loading">Loading popular books...</div>';
 
-  const popularQueries = [
-    { q: 'bestseller fiction', sort: 'rating' },
-    { q: 'classic literature', sort: 'edition_count' },
-    { q: 'popular nonfiction', sort: 'rating' }
-  ];
-
-  try {
-    const allBooks = [];
-
-    for (const { q, sort } of popularQueries) {
-      try {
-        const r = await fetch(
-          `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=${sort}&limit=8`
-        );
-        if (r.ok) {
-          const data = await r.json();
-          if (data.docs?.length) allBooks.push(...data.docs);
-        }
-      } catch {
-        continue;
-      }
-      if (allBooks.length >= 16) break;
-    }
-
-    const unique = [];
-    const seen = new Set();
-    for (const book of allBooks) {
-      const id = getBookId(book);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      unique.push(book);
-    }
-
-    const books = unique.length >= 8
-      ? unique.slice(0, 12)
-      : getFreshBooks([...unique, ...SAMPLE_BOOKS], 12);
-
-    renderBookCards(popularGrid, books, 8, { showPopularBadge: true });
-  } catch {
-    renderBookCards(popularGrid, SAMPLE_BOOKS.slice(0, 8), 8, { showPopularBadge: true });
-  }
-}
 
 function renderCategories() {
   categoryGrid.innerHTML = '';
@@ -1695,6 +1762,7 @@ function setStatus(text, error = false) {
 
 // ── Book Detail Operations ───────────────────────────────────
 async function fetchDescription(book) {
+  if (book.description) return book.description;
   // 1. Google Books API - Primary source for descriptions
   try {
     const searchQuery = `${book.title} ${book.author_name?.[0] || ''}`.trim();
@@ -1746,6 +1814,52 @@ function updateDetailActionsUI(book) {
     favToggleBtn.textContent = '♡ Favorite';
     favToggleBtn.classList.remove('active');
   }
+}
+
+function renderDownloadSources(book) {
+  const container = document.getElementById('detail-downloads-block');
+  const grid = document.getElementById('download-grid');
+  const toggleBtn = document.getElementById('show-all-downloads-btn');
+  if (!container || !grid || !toggleBtn) return;
+
+  container.classList.remove('hidden');
+  grid.innerHTML = '';
+
+  const authorName = formatAuthors(book.author_name);
+  const searchTitle = book.title || 'Unknown Title';
+  const fullQuery = searchTitle;
+
+  let showAll = false;
+
+  function drawGrid() {
+    grid.innerHTML = '';
+    const limit = showAll ? DOWNLOAD_SOURCES.length : 6;
+    
+    DOWNLOAD_SOURCES.slice(0, limit).forEach(src => {
+      const btn = document.createElement('a');
+      btn.className = 'download-btn';
+      btn.target = '_blank';
+      btn.rel = 'noopener noreferrer';
+      
+      let targetUrl = src.url
+        .replace(/{query}/g, encodeURIComponent(fullQuery))
+        .replace(/{title}/g, encodeURIComponent(searchTitle))
+        .replace(/{author}/g, encodeURIComponent(authorName));
+        
+      btn.href = targetUrl;
+      btn.innerHTML = `<span style="font-size: 1.1rem;">${src.emoji}</span> <span>${src.name}</span>`;
+      grid.appendChild(btn);
+    });
+
+    toggleBtn.textContent = showAll ? 'Show less ↑' : `Show all 20 sources ↓`;
+  }
+
+  toggleBtn.onclick = () => {
+    showAll = !showAll;
+    drawGrid();
+  };
+
+  drawGrid();
 }
 
 async function displayBook(book) {
@@ -1883,6 +1997,8 @@ async function displayBook(book) {
     saveState(STORAGE_KEYS.FAVORITES, state.favorites);
     updateDetailActionsUI(book);
   };
+
+  renderDownloadSources(book);
 }
 
 
@@ -1931,6 +2047,7 @@ function showSearchSkeletons() {
   `;
   
   detailRetailersGrid.classList.add('hidden');
+  document.getElementById('detail-downloads-block')?.classList.add('hidden');
 }
 
 function updateStarsUI(rating) {
@@ -1952,12 +2069,18 @@ async function searchBook(query, options = {}) {
   resultsRoot.classList.remove('hidden');
   updateBackButton(true);
   setCategoryFullPageMode(!!fetchAll);
+  setResultsMinimized(!fetchAll);
+  updateBreadcrumbs('discover', true);
   showSearchSkeletons();
 
   if (resultsPanelTitle) {
     resultsPanelTitle.textContent = categoryName || 'Search Results';
   }
-  if (categoryName) mainPageTitle.textContent = categoryName;
+  if (categoryName) {
+    mainPageTitle.textContent = categoryName;
+  } else {
+    mainPageTitle.textContent = fetchAll ? 'Search Results' : 'Book Details';
+  }
 
   try {
     if (fetchAll) {
@@ -2126,13 +2249,7 @@ viewAllBtn.onclick = () => {
   searchBook('bestseller');
 };
 
-if (popularViewAllBtn) {
-  popularViewAllBtn.onclick = () => {
-    searchBook('bestseller popular', { fetchAll: true, categoryName: 'Popular Books' });
-  };
-}
 
-// Search Category Dropdown toggling
 if (searchCatDropdownBtn) {
   searchCatDropdownBtn.onclick = (e) => {
     e.preventDefault();
@@ -2191,12 +2308,23 @@ clearNotifBtn.onclick = (e) => {
   renderNotifications();
 };
 
-// Dark Mode Switch
-darkModeToggle.onchange = (e) => {
-  state.settings.theme = e.target.checked ? 'dark' : 'light';
+function toggleThemeAction() {
+  state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
   saveState(STORAGE_KEYS.SETTINGS, state.settings);
   updateThemeUI();
-};
+}
+
+// Dark Mode Switch
+if (darkModeToggle) {
+  darkModeToggle.onchange = () => {
+    toggleThemeAction();
+  };
+}
+if (themeQuickToggleBtn) {
+  themeQuickToggleBtn.onclick = () => {
+    toggleThemeAction();
+  };
+}
 
 // Settings Save Profile
 saveProfileBtn.onclick = () => {
@@ -2337,6 +2465,461 @@ if (closeShortcutsBtn) {
   closeShortcutsBtn.onclick = () => shortcutsPanel?.classList.add('hidden');
 }
 
+// ── AI corner implementation ──
+let aiInitialized = false;
+
+function loadAiPage() {
+  if (aiInitialized) {
+    populateSummarizerBooks();
+    return;
+  }
+  aiInitialized = true;
+  
+  // Set up AI corner sub-navigation tab events
+  const aiTabs = document.querySelectorAll('.ai-tab');
+  const aiSubPanels = document.querySelectorAll('.ai-sub-panel');
+  aiTabs.forEach(tab => {
+    tab.onclick = () => {
+      aiTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const targetPanelId = `ai-panel-${tab.getAttribute('data-ai-tab')}`;
+      aiSubPanels.forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== targetPanelId);
+      });
+    };
+  });
+
+  // 1. AI Librarian Chat Initialization
+  if (chatInputForm) {
+    chatInputForm.onsubmit = (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      handleUserMessage(text);
+      chatInput.value = '';
+    };
+  }
+
+  // Chips click handler
+  const chips = document.querySelectorAll('.chat-chip');
+  chips.forEach(chip => {
+    chip.onclick = () => {
+      const promptText = chip.getAttribute('data-prompt');
+      if (promptText) {
+        handleUserMessage(promptText);
+      }
+    };
+  });
+
+  // 2. AI Summarizer Initialization
+  populateSummarizerBooks();
+  if (generateSummaryBtn) {
+    generateSummaryBtn.onclick = () => {
+      triggerSummarizer();
+    };
+  }
+
+  // 3. AI Recommendation Assistant Initialization
+  setupRecommendationOptions();
+  if (recoGenerateBtn) {
+    recoGenerateBtn.onclick = () => {
+      triggerRecommendation();
+    };
+  }
+}
+
+// Chat functions
+function appendMessage(sender, text, bookObj = null) {
+  const isUser = sender === 'user';
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${isUser ? 'user-message' : 'system-message'}`;
+  
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'message-content';
+  contentDiv.textContent = text;
+  
+  if (bookObj) {
+    const card = document.createElement('div');
+    card.className = 'chat-book-card';
+    const coverUrl = buildCoverUrl(bookObj);
+    const coverDiv = document.createElement('div');
+    coverDiv.className = 'chat-book-cover';
+    if (coverUrl) coverDiv.style.backgroundImage = `url('${coverUrl}')`;
+    
+    const info = document.createElement('div');
+    info.className = 'chat-book-info';
+    info.innerHTML = `<h4>${bookObj.title}</h4><p>${formatAuthors(bookObj.author_name || bookObj.authors)}</p>`;
+    
+    card.append(coverDiv, info);
+    card.onclick = () => {
+      selectAndDisplayBook(bookObj);
+    };
+    contentDiv.appendChild(card);
+  }
+  
+  msgDiv.appendChild(contentDiv);
+  chatMessages.appendChild(msgDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showTypingIndicator() {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message system-message';
+  msgDiv.id = 'ai-typing-indicator';
+  
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'message-content';
+  contentDiv.innerHTML = `
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  msgDiv.appendChild(contentDiv);
+  chatMessages.appendChild(msgDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTypingIndicator() {
+  const indicator = document.getElementById('ai-typing-indicator');
+  if (indicator) {
+    indicator.remove();
+  }
+}
+
+async function handleUserMessage(text) {
+  appendMessage('user', text);
+  showTypingIndicator();
+  
+  const cleanText = text.toLowerCase();
+  
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  hideTypingIndicator();
+
+  // 1. Check for recommendations
+  if (cleanText.includes('recommend') || cleanText.includes('suggest') || cleanText.includes('book') || cleanText.includes('read') || cleanText.includes('mystery') || cleanText.includes('fantasy') || cleanText.includes('sci-fi') || cleanText.includes('science fiction') || cleanText.includes('classic') || cleanText.includes('thriller')) {
+    let query = 'bestseller';
+    let genreName = 'popular books';
+    if (cleanText.includes('fantasy')) { query = 'fantasy'; genreName = 'Fantasy'; }
+    else if (cleanText.includes('mystery') || cleanText.includes('thriller')) { query = 'thriller'; genreName = 'Mystery & Thriller'; }
+    else if (cleanText.includes('sci-fi') || cleanText.includes('science-fiction')) { query = 'science-fiction'; genreName = 'Science Fiction'; }
+    else if (cleanText.includes('classic') || cleanText.includes('classics')) { query = 'classics'; genreName = 'Classics'; }
+    
+    try {
+      const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const books = data.docs || [];
+      if (books.length > 0) {
+        // Pick a random book from top results
+        const index = Math.floor(Math.random() * Math.min(books.length, 5));
+        const book = books[index];
+        appendMessage('system', `I found a great ${genreName} book that you might like! It's called "${book.title}". Here is the recommendation card:`, book);
+      } else {
+        throw new Error('No books');
+      }
+    } catch (e) {
+      // Fallback offline books
+      const offline = SAMPLE_BOOKS.filter(b => {
+        if (query === 'fantasy') return b.subjects?.includes('fantasy') || b.title.toLowerCase().includes('hobbit') || b.title.toLowerCase().includes('potter');
+        return true;
+      });
+      const book = offline[Math.floor(Math.random() * offline.length)] || SAMPLE_BOOKS[0];
+      appendMessage('system', `Here is a suggestions from our local library: "${book.title}". Click the card below to see details and download links!`, book);
+    }
+    return;
+  }
+  
+  // 2. Generic greetings
+  if (cleanText.includes('hello') || cleanText.includes('hi') || cleanText.includes('hey') || cleanText.includes('greetings')) {
+    appendMessage('system', `Hello! How can I help you today? You can ask me to:
+- Recommend books by genre (e.g. "Suggest a sci-fi book")
+- Tell you about authors or app features
+- Tell you about book summaries (switch to the Summarizer tab on top for structured insights!)`);
+    return;
+  }
+
+  // 3. Help questions
+  if (cleanText.includes('how') && (cleanText.includes('download') || cleanText.includes('read') || cleanText.includes('pdf'))) {
+    appendMessage('system', `To download any book, search for it using the main search bar at the top, select the book from the results, and scroll down to the "Download Free eBook" section. You'll find direct search links for 20 major digital libraries!`);
+    return;
+  }
+  
+  // 4. Default fallbacks
+  appendMessage('system', `I'm on it! If you're looking for recommendations, I highly suggest trying our "AI Recommendation Assistant" tab above. Otherwise, you can ask me to recommend a specific genre (like Fantasy, Mystery, or Sci-Fi) right here, or ask "Who wrote Hamlet?" to learn about classics.`);
+}
+
+// Summarizer functions
+function populateSummarizerBooks() {
+  if (!summarizerBookSelect) return;
+  const select = summarizerBookSelect;
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">Choose a book...</option>';
+  
+  const booksMap = new Map();
+  
+  // Seed with sample books
+  SAMPLE_BOOKS.forEach(b => { booksMap.set(getBookId(b), b); });
+  
+  // Add recent books
+  state.recent.forEach(b => { booksMap.set(getBookId(b), b); });
+  
+  // Add favorites
+  state.favorites.forEach(b => { booksMap.set(getBookId(b), b); });
+  
+  // Add library books
+  Object.values(state.library).forEach(e => {
+    if (e.book) booksMap.set(getBookId(e.book), e.book);
+  });
+  
+  // Sort books alphabetically by title
+  const sortedBooks = Array.from(booksMap.values()).sort((a, b) => {
+    return (a.title || '').localeCompare(b.title || '');
+  });
+  
+  sortedBooks.forEach(book => {
+    const opt = document.createElement('option');
+    opt.value = getBookId(book);
+    opt.textContent = `${book.title} - ${formatAuthors(book.author_name || book.authors)}`;
+    select.appendChild(opt);
+  });
+  
+  // Restore value if still present
+  if (currentVal && booksMap.has(currentVal)) {
+    select.value = currentVal;
+  }
+}
+
+async function triggerSummarizer() {
+  const bookId = summarizerBookSelect.value;
+  if (!bookId) {
+    showToast('Please select a book to summarize.');
+    return;
+  }
+
+  // Find book object
+  const booksMap = new Map();
+  SAMPLE_BOOKS.forEach(b => { booksMap.set(getBookId(b), b); });
+  state.recent.forEach(b => { booksMap.set(getBookId(b), b); });
+  state.favorites.forEach(b => { booksMap.set(getBookId(b), b); });
+  Object.values(state.library).forEach(e => { if (e.book) booksMap.set(getBookId(e.book), e.book); });
+  
+  const book = booksMap.get(bookId);
+  if (!book) return;
+
+  const format = summarizerTypeSelect.value;
+  
+  summaryEmptyState.classList.add('hidden');
+  summaryResultContent.classList.remove('hidden');
+  
+  // Show loading
+  summaryTitle.textContent = book.title;
+  summaryAuthors.textContent = formatAuthors(book.author_name || book.authors);
+  const coverUrl = buildCoverUrl(book);
+  summaryCover.style.backgroundImage = coverUrl ? `url('${coverUrl}')` : '';
+  
+  const formatLabel = summarizerTypeSelect.options[summarizerTypeSelect.selectedIndex].text;
+  summaryBadge.textContent = formatLabel;
+  
+  summaryTextBody.innerHTML = `
+    <div class="typing-indicator" style="padding: 20px 0;">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <span style="font-size: 0.85rem; color: var(--muted); margin-left: 8px;">AI is compiling summary details...</span>
+    </div>
+  `;
+
+  try {
+    const desc = await fetchDescription(book);
+    const summaryHTML = generateGenericSummary(book, desc, format);
+    summaryTextBody.innerHTML = summaryHTML;
+  } catch (err) {
+    summaryTextBody.innerHTML = `<p style="color: var(--accent);">Failed to load summary. Please check your internet connection.</p>`;
+  }
+}
+
+function generateGenericSummary(book, desc, format) {
+  const title = book.title || 'Unknown Title';
+  const authorName = formatAuthors(book.author_name || book.authors);
+  const subjects = book.subject || [];
+  const cleanDesc = desc ? desc.replace(/\[\d+\]/g, '').trim() : '';
+
+  // Extract first 2-3 sentences of description for pitch
+  let firstSentences = '';
+  if (cleanDesc) {
+    const sentences = cleanDesc.match(/[^.!?]+[.!?]+/g) || [cleanDesc];
+    firstSentences = sentences.slice(0, 2).join(' ');
+  } else {
+    firstSentences = `A fascinating work by ${authorName} published in ${book.first_publish_year || 'the past'}. Exploring themes of ${subjects.slice(0, 3).join(', ') || 'literature and humanity'}, it remains a key title in its genre.`;
+  }
+
+  if (format === 'pitch') {
+    return `
+      <p style="font-size: 1.05rem; font-style: italic; border-left: 3px solid var(--accent); padding-left: 15px; line-height: 1.6; margin-bottom: 12px;">
+        "${firstSentences}"
+      </p>
+      <p style="margin-top: 15px;">Explore this remarkable title by ${authorName} to discover why it has captured the attention of readers in the ${subjects.slice(0, 2).join(' and ') || 'literary'} fields.</p>
+    `;
+  }
+
+  if (format === 'takeaways') {
+    const bullets = subjects.slice(0, 4).map(sub => {
+      return `<li><strong>${sub}:</strong> Deeply integrated as a core thematic element, highlighting the author's exploration of this concept.</li>`;
+    }).join('');
+
+    return `
+      <h4>✨ Core Highlights</h4>
+      <ul>
+        ${bullets || `<li><strong>Core Plot and Concept:</strong> ${firstSentences}</li>`}
+        <li><strong>Historical Context:</strong> Published in ${book.first_publish_year || 'its era'}, reflecting the literary and social paradigms of the time.</li>
+        <li><strong>Writing Style:</strong> Structured with ${book.number_of_pages_median ? `${book.number_of_pages_median} pages of` : ''} rich narratives and detailed character arcs typical of ${authorName}'s bibliography.</li>
+      </ul>
+      <h4>🎯 Who Should Read This?</h4>
+      <p>Recommended for readers who enjoy ${subjects.slice(0, 3).join(', ') || 'literary fiction'} and those interested in studying the works of ${authorName}.</p>
+    `;
+  }
+
+  if (format === 'characters') {
+    const charList = subjects.filter(s => s.toLowerCase().includes('character') || s.length < 20).slice(0, 3);
+    const chars = charList.map(c => `<li><strong>${c.replace(/character:/gi, '').trim()}:</strong> A focal figure shaping the narrative arc.</li>`).join('');
+
+    return `
+      <h4>👤 Principal Elements</h4>
+      <ul>
+        ${chars || `<li><strong>Central Protagonist:</strong> Navigates the primary conflict described in ${authorName}'s story.</li>
+        <li><strong>Supporting Characters:</strong> Shape the main thematic struggles and add depth to the setting.</li>`}
+      </ul>
+      <h4>🗺️ Setting & Conflict</h4>
+      <p>Set within the realms of ${subjects.slice(4, 7).join(', ') || 'its narrative landscape'}. The conflict is driven by the themes of ${subjects.slice(0, 2).join(' and ') || 'the human experience'}.</p>
+    `;
+  }
+
+  if (format === 'themes') {
+    const themesList = subjects.filter(s => s.toLowerCase().includes('theme') || s.length < 25).slice(0, 3);
+    const themesHTML = themesList.map(t => `<li><strong>${t}:</strong> Explored through character choices and plot development as a recurring motif.</li>`).join('');
+
+    return `
+      <h4>🔬 Thematic & Literary Analysis</h4>
+      <ul>
+        ${themesHTML || `<li><strong>The Human Condition:</strong> Discussed through the struggles of the characters.</li>`}
+        <li><strong>Genre Influence:</strong> Utilizes tropes from ${subjects.slice(0, 2).join(', ') || 'classic fiction'} to comment on broader societal and existential questions.</li>
+        <li><strong>Author's Voice:</strong> ${authorName} employs distinctive prose styling to create an immersive and intellectual reading atmosphere.</li>
+      </ul>
+    `;
+  }
+}
+
+// Recommendation Assistant functions
+function setupRecommendationOptions() {
+  const groups = ['reco-mood-options', 'reco-pace-options', 'reco-length-options'];
+  groups.forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
+    const chips = container.querySelectorAll('.option-chip');
+    chips.forEach(chip => {
+      chip.onclick = () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      };
+    });
+  });
+}
+
+async function triggerRecommendation() {
+  const moodActive = document.querySelector('#reco-mood-options .option-chip.active');
+  const paceActive = document.querySelector('#reco-pace-options .option-chip.active');
+  const lengthActive = document.querySelector('#reco-length-options .option-chip.active');
+  
+  const mood = moodActive ? moodActive.getAttribute('data-val') : 'adventurous';
+  const pace = paceActive ? paceActive.getAttribute('data-val') : 'fast';
+  const length = lengthActive ? lengthActive.getAttribute('data-val') : 'medium';
+  const genre = recoGenreSelect.value;
+  
+  recoResultsSection.classList.remove('hidden');
+  recoResultsGrid.innerHTML = `
+    <div class="typing-indicator" style="padding: 30px; grid-column: 1 / -1; justify-content: center;">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <span style="font-size: 0.9rem; color: var(--muted); margin-left: 10px;">AI is scanning catalog index for matches...</span>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`https://openlibrary.org/search.json?q=subject:${encodeURIComponent(genre)}&limit=30`);
+    const data = await response.json();
+    let books = data.docs || [];
+    
+    // Sort and filter slightly by page length preference if available
+    books = books.filter(b => {
+      if (!b.number_of_pages_median) return true; // keep if unknown
+      const pages = b.number_of_pages_median;
+      if (length === 'short') return pages < 250;
+      if (length === 'medium') return pages >= 250 && pages <= 500;
+      if (length === 'long') return pages > 500;
+      return true;
+    });
+
+    if (books.length === 0 && data.docs && data.docs.length > 0) {
+      books = data.docs;
+    }
+    
+    // Select top 4 matches
+    const matches = books.slice(0, 4);
+    
+    if (matches.length === 0) {
+      const fallbackMatches = SAMPLE_BOOKS.slice(0, 2);
+      renderRecoMatches(fallbackMatches, mood, pace, length);
+    } else {
+      renderRecoMatches(matches, mood, pace, length);
+    }
+  } catch (err) {
+    const fallbackMatches = SAMPLE_BOOKS.slice(0, 2);
+    renderRecoMatches(fallbackMatches, mood, pace, length);
+  }
+}
+
+function renderRecoMatches(books, mood, pace, length) {
+  recoResultsGrid.innerHTML = '';
+  
+  const baseScores = [98, 95, 91, 87];
+  
+  books.forEach((book, idx) => {
+    const card = document.createElement('div');
+    card.className = 'reco-match-card';
+    
+    const coverUrl = buildCoverUrl(book);
+    const coverDiv = document.createElement('div');
+    coverDiv.className = 'reco-match-cover';
+    if (coverUrl) coverDiv.style.backgroundImage = `url('${coverUrl}')`;
+    
+    const info = document.createElement('div');
+    info.className = 'reco-match-info';
+    
+    const score = baseScores[idx] || (85 - idx * 2);
+    
+    const pagesDesc = book.number_of_pages_median ? `across its ${book.number_of_pages_median} pages` : 'in its length';
+    const rationale = `Fits your preference for ${mood.toUpperCase()} storylines. Matches your choice of ${pace}-paced progression and ${length} book length ${pagesDesc}.`;
+    
+    info.innerHTML = `
+      <div class="reco-match-score">✨ ${score}% Match</div>
+      <h4>${book.title}</h4>
+      <div class="authors">${formatAuthors(book.author_name || book.authors)}</div>
+      <div class="rationale">${rationale}</div>
+    `;
+    
+    card.append(coverDiv, info);
+    card.onclick = () => {
+      selectAndDisplayBook(book);
+    };
+    
+    recoResultsGrid.appendChild(card);
+  });
+}
+
 // ── Startup ──────────────────────────────────────────────────
 function init() {
   updateThemeUI();
@@ -2351,7 +2934,6 @@ function init() {
 
   renderSearchCategoryMenu();
   renderCategories();
-  loadPopularBooks();
   loadHomeReco();
   renderRecentlyViewed();
 
